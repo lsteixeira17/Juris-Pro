@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, lazy, Suspense, memo } from 'react'
 import ProcessoModal from './ProcessoModal.jsx'
 import ProcessoDetailsModal from './ProcessoDetailsModal.jsx'
 import ClienteModal from './ClienteModal.jsx'
@@ -33,7 +33,8 @@ import {
   Clock,
   User
 } from 'lucide-react'
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
+// Carregamento dinâmico do componente de gráfico para reduzir bundle inicial
+const StatusChart = lazy(() => import('./components/StatusChart.jsx'))
 import { APP_CONFIG, Utils, DataManager, exportProcessosToCSV, importProcessosFromCSV, validateBackupStructure, validateArray, validateProcessoData } from './utils.js'
 import './App.css'
 
@@ -395,7 +396,7 @@ const App = () => {
   const filteredProcessos = getFilteredProcessos()
 
   // Componente de navegação lateral
-  const Sidebar = () => (
+  const Sidebar = memo(() => (
     <div className={`fixed inset-y-0 left-0 z-50 w-64 bg-blue-800 text-white transform ${appState.sidebarOpen ? 'translate-x-0' : '-translate-x-full'} transition-transform duration-300 ease-in-out lg:translate-x-0 lg:static lg:inset-0`}>
       <div className="flex items-center justify-between p-4 border-b border-blue-700">
         <div className="flex items-center">
@@ -448,10 +449,10 @@ const App = () => {
         <p className="mt-1">© 2025 JurisTech</p>
       </div>
     </div>
-  )
+  ))
 
   // Componente de cabeçalho
-  const Header = () => (
+  const Header = memo(() => (
     <header className="bg-white shadow-md p-4 flex justify-between items-center">
       <div className="flex items-center">
         <Button
@@ -503,49 +504,49 @@ const App = () => {
         </div>
       </div>
     </header>
-  )
+  ))
 
   // Componente Dashboard
   const Dashboard = () => (
     <div className="space-y-6">
       {/* Cards de Resumo */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <Card className="hover:shadow-lg transition-shadow">
-          <CardContent className="flex items-center p-6">
+      <div className="dashboard-stats">
+        <Card className="dashboard-card hover:shadow-lg transition-shadow">
+          <CardContent className="card-content-fill p-6 flex items-center">
             <Gavel className="h-8 w-8 text-blue-500 mr-4" />
             <div>
-              <p className="text-gray-500 text-sm">Total de Processos</p>
-              <p className="text-2xl font-bold text-gray-800">{stats.totalProcessos}</p>
+              <p className="stat-label">Total de Processos</p>
+              <p className="stat-number">{stats.totalProcessos}</p>
             </div>
           </CardContent>
         </Card>
-        
-        <Card className="hover:shadow-lg transition-shadow">
-          <CardContent className="flex items-center p-6">
+
+        <Card className="dashboard-card hover:shadow-lg transition-shadow">
+          <CardContent className="card-content-fill p-6 flex items-center">
             <Calendar className="h-8 w-8 text-green-500 mr-4" />
             <div>
-              <p className="text-gray-500 text-sm">Prazos na Semana</p>
-              <p className="text-2xl font-bold text-gray-800">{stats.prazosNaSemana}</p>
+              <p className="stat-label">Prazos na Semana</p>
+              <p className="stat-number">{stats.prazosNaSemana}</p>
             </div>
           </CardContent>
         </Card>
-        
-        <Card className="hover:shadow-lg transition-shadow">
-          <CardContent className="flex items-center p-6">
+
+        <Card className="dashboard-card hover:shadow-lg transition-shadow">
+          <CardContent className="card-content-fill p-6 flex items-center">
             <AlertTriangle className="h-8 w-8 text-red-500 mr-4" />
             <div>
-              <p className="text-gray-500 text-sm">Prazos Vencidos</p>
-              <p className="text-2xl font-bold text-gray-800">{stats.prazosVencidos}</p>
+              <p className="stat-label">Prazos Vencidos</p>
+              <p className="stat-number">{stats.prazosVencidos}</p>
             </div>
           </CardContent>
         </Card>
-        
-        <Card className="hover:shadow-lg transition-shadow">
-          <CardContent className="flex items-center p-6">
+
+        <Card className="dashboard-card hover:shadow-lg transition-shadow">
+          <CardContent className="card-content-fill p-6 flex items-center">
             <Users className="h-8 w-8 text-purple-500 mr-4" />
             <div>
-              <p className="text-gray-500 text-sm">Total de Clientes</p>
-              <p className="text-2xl font-bold text-gray-800">{stats.totalClientes}</p>
+              <p className="stat-label">Total de Clientes</p>
+              <p className="stat-number">{stats.totalClientes}</p>
             </div>
           </CardContent>
         </Card>
@@ -553,40 +554,36 @@ const App = () => {
 
       {/* Gráficos */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <Card className="lg:col-span-2">
-          <CardHeader>
+        <Card className="lg:col-span-2 hover:shadow-lg transition-shadow">
+          <CardHeader className="card-header-compact">
             <CardTitle className="flex items-center">
               <BarChart3 className="h-5 w-5 mr-2" />
               Processos por Status
             </CardTitle>
           </CardHeader>
-          <CardContent>
+          <CardContent className="p-4">
             {stats.statusData.length > 0 ? (
-              <ResponsiveContainer width="100%" height={300}>
-                <BarChart data={stats.statusData}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="status" />
-                  <YAxis />
-                  <Tooltip />
-                  <Bar dataKey="count" fill="#3B82F6" />
-                </BarChart>
-              </ResponsiveContainer>
+              <Suspense fallback={<div className="chart-fallback">Carregando gráfico...</div>}>
+                <div style={{ width: '100%', height: 300 }}>
+                  <StatusChart data={stats.statusData} />
+                </div>
+              </Suspense>
             ) : (
               <p className="text-gray-500 text-center py-8">Nenhum processo cadastrado ainda.</p>
             )}
           </CardContent>
         </Card>
         
-        <Card>
-          <CardHeader>
+        <Card className="hover:shadow-lg transition-shadow">
+          <CardHeader className="card-header-compact">
             <CardTitle className="flex items-center">
               <Bell className="h-5 w-5 mr-2" />
               Últimas Atualizações
             </CardTitle>
           </CardHeader>
-          <CardContent>
+          <CardContent className="p-4 recent-updates-list">
             {appState.processos.slice(0, 5).map(processo => (
-              <div key={processo.id} className="mb-3 p-2 bg-gray-50 rounded">
+              <div key={processo.id} className="mb-3 p-3 bg-gray-50">
                 <p className="text-sm font-medium">{processo.numero}</p>
                 <p className="text-xs text-gray-500">{processo.assunto}</p>
                 <p className="text-xs text-gray-400">{Utils.formatDate(processo.updatedAt)}</p>
@@ -834,7 +831,19 @@ const App = () => {
       <div className="flex-1 flex flex-col overflow-hidden">
         <Header />
         
-        <main className="flex-1 overflow-y-auto p-6">
+        <main
+            className="flex-1 overflow-y-auto p-6"
+            onClick={() => {
+              // Fechar sidebar em telas pequenas quando usuário interage com o conteúdo
+              try {
+                if (appState.sidebarOpen && window.innerWidth < 1024) {
+                  setAppState(prev => ({ ...prev, sidebarOpen: false }))
+                }
+              } catch (e) {
+                // noop
+              }
+            }}
+        >
           {appState.currentPage === 'dashboard' && <Dashboard />}
           {appState.currentPage === 'processos' && <Processos />}
           {appState.currentPage === 'agenda' && <EmptyPage title="Agenda & Prazos" icon={Calendar} />}

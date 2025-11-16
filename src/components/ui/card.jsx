@@ -1,23 +1,29 @@
 import React from 'react'
 
-export const Card = ({ children, className = '' }) => (
+const CardBase = ({ children, className = '' }) => (
   <div className={`rounded-md bg-white shadow ${className}`}>{children}</div>
 )
 
-export const CardContent = ({ children, className = '' }) => (
+const CardContentBase = ({ children, className = '' }) => (
   <div className={`p-4 ${className}`}>{children}</div>
 )
 
-export const CardHeader = ({ children, className = '' }) => (
+const CardHeaderBase = ({ children, className = '' }) => (
   <div className={`p-4 border-b ${className}`}>{children}</div>
 )
 
-export const CardTitle = ({ children, className = '' }) => (
+const CardTitleBase = ({ children, className = '' }) => (
   <h3 className={`text-lg font-semibold ${className}`}>{children}</h3>
 )
 
-export const CardDescription = ({ children, className = '' }) => (
+const CardDescriptionBase = ({ children, className = '' }) => (
   <p className={`text-sm text-gray-500 ${className}`}>{children}</p>
 )
+
+export const Card = React.memo(CardBase)
+export const CardContent = React.memo(CardContentBase)
+export const CardHeader = React.memo(CardHeaderBase)
+export const CardTitle = React.memo(CardTitleBase)
+export const CardDescription = React.memo(CardDescriptionBase)
 
 export default Card

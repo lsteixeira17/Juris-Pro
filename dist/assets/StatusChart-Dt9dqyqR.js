@@ -1,0 +1,1 @@
+import{j as s,n as t,o as r,p as e,q as i,Y as o,s as x,t as n}from"./vendor-Cb0khi56.js";const h=({data:a})=>s.jsx(t,{width:"100%",height:300,children:s.jsxs(r,{data:a,children:[s.jsx(e,{strokeDasharray:"3 3"}),s.jsx(i,{dataKey:"status"}),s.jsx(o,{}),s.jsx(x,{}),s.jsx(n,{dataKey:"count",fill:"#3B82F6"})]})});export{h as default};
