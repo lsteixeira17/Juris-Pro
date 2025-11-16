@@ -135,6 +135,24 @@ export const DataManager = {
 }
 
 /**
+ * Validar se dados são um array válido
+ */
+export const validateArray = (data) => {
+  return Array.isArray(data) ? data : []
+}
+
+/**
+ * Validar estrutura de backup
+ */
+export const validateBackupStructure = (backup) => {
+  return backup &&
+    typeof backup === 'object' &&
+    backup.version &&
+    backup.data &&
+    typeof backup.data === 'object'
+}
+
+/**
  * Classe de validação de formulários
  */
 export class FormValidator {
@@ -248,6 +266,14 @@ export const importProcessosFromCSV = (csvText) => {
   }
 
   return processos
+}
+
+/**
+ * Validar dados de processo antes de salvar
+ */
+export const validateProcessoData = (processo) => {
+  const required = ['numero', 'classe', 'autores', 'reus', 'assunto']
+  return required.every(field => processo[field] && processo[field].trim() !== '')
 }
 
 /**

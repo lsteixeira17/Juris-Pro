@@ -34,7 +34,7 @@ import {
   User
 } from 'lucide-react'
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
-import { APP_CONFIG, Utils, DataManager, exportProcessosToCSV, importProcessosFromCSV } from './utils.js'
+import { APP_CONFIG, Utils, DataManager, exportProcessosToCSV, importProcessosFromCSV, validateBackupStructure, validateArray, validateProcessoData } from './utils.js'
 import './App.css'
 
 
@@ -58,6 +58,7 @@ const initialState = {
     itemsPerPage: 10
   }
 }
+const App = () => {
   const [appState, setAppState] = useState(initialState)
   const [notification, setNotification] = useState({ show: false, message: '', type: 'success' })
   const [selectedProcesso, setSelectedProcesso] = useState(null)
@@ -69,15 +70,21 @@ const initialState = {
 
   // Carregar dados do localStorage na inicialização
   useEffect(() => {
-    const loadedState = {
-      ...initialState,
-      processos: DataManager.load(APP_CONFIG.storageKeys.processos),
-      clientes: DataManager.load(APP_CONFIG.storageKeys.clientes),
-      transacoes: DataManager.load(APP_CONFIG.storageKeys.transacoes),
-      documentos: DataManager.load(APP_CONFIG.storageKeys.documentos),
-      auditLog: DataManager.load(APP_CONFIG.storageKeys.audit)
+    try {
+      const loadedState = {
+        ...initialState,
+        processos: validateArray(DataManager.load(APP_CONFIG.storageKeys.processos)),
+        clientes: validateArray(DataManager.load(APP_CONFIG.storageKeys.clientes)),
+        transacoes: validateArray(DataManager.load(APP_CONFIG.storageKeys.transacoes)),
+        documentos: validateArray(DataManager.load(APP_CONFIG.storageKeys.documentos)),
+        auditLog: validateArray(DataManager.load(APP_CONFIG.storageKeys.audit))
+      }
+      setAppState(loadedState)
+    } catch (error) {
+      console.error('Erro ao carregar dados do localStorage:', error)
+      setAppState(initialState)
+      setNotification({ show: true, message: 'Erro ao carregar dados. Usando estado padrão.', type: 'warning' })
     }
-    setAppState(loadedState)
   }, [])
 
   // Salvar dados sempre que o estado mudar
@@ -92,10 +99,16 @@ const initialState = {
   // Sistema de notificações
   const showNotification = (message, type = 'success') => {
     setNotification({ show: true, message, type })
-    setTimeout(() => {
+  }
+
+  // Limpar notificação automaticamente
+  useEffect(() => {
+    if (!notification.show) return
+    const timer = setTimeout(() => {
       setNotification({ show: false, message: '', type: 'success' })
     }, 4000)
-  }
+    return () => clearTimeout(timer)
+  }, [notification.show])
 
   // Adicionar processo
   const addProcesso = (processoData) => {
@@ -197,57 +210,84 @@ const initialState = {
     showNotification('Processos exportados com sucesso!')
   }
 
-  // Importar CSV
+  // Importar CSV com validação básica
   const importCSV = (event) => {
     const file = event.target.files[0]
     if (!file) return
-    
+
     const reader = new FileReader()
     reader.onload = (e) => {
       try {
         const csvText = e.target.result
+        if (!csvText || csvText.trim() === '') {
+          showNotification('Arquivo CSV vazio. Verifique o arquivo.', 'warning')
+          event.target.value = ''
+          return
+        }
+
         const processos = importProcessosFromCSV(csvText)
-        
+        if (!processos || processos.length === 0) {
+          showNotification('Nenhum processo válido encontrado no arquivo.', 'warning')
+          event.target.value = ''
+          return
+        }
+
         let addedCount = 0
         processos.forEach(processoData => {
-          addProcesso(processoData)
-          addedCount++
+          if (validateProcessoData(processoData)) {
+            addProcesso(processoData)
+            addedCount++
+          }
         })
-        
-        showNotification(`${addedCount} processos importados com sucesso!`)
+
+        if (addedCount > 0) showNotification(`${addedCount} processos importados com sucesso!`)
+        else showNotification('Nenhum processo válido encontrado para importar.', 'warning')
       } catch (error) {
         console.error('Erro ao importar CSV:', error)
-        showNotification('Erro ao importar arquivo CSV.', 'error')
+        showNotification('Erro ao importar arquivo CSV. Verifique o formato.', 'error')
+      } finally {
+        event.target.value = ''
       }
     }
+
+    reader.onerror = () => {
+      console.error('Erro ao ler arquivo CSV')
+      showNotification('Erro ao ler o arquivo. Tente novamente.', 'error')
+      event.target.value = ''
+    }
+
     reader.readAsText(file)
-    event.target.value = ''
   }
 
   // Fazer backup
   const exportBackup = () => {
-    const backup = {
-      version: APP_CONFIG.version,
-      timestamp: new Date().toISOString(),
-      data: {
-        processos: appState.processos,
-        clientes: appState.clientes,
-        transacoes: appState.transacoes,
-        documentos: appState.documentos,
-        auditLog: appState.auditLog
+    try {
+      const backup = {
+        version: APP_CONFIG.version,
+        timestamp: new Date().toISOString(),
+        data: {
+          processos: appState.processos,
+          clientes: appState.clientes,
+          transacoes: appState.transacoes,
+          documentos: appState.documentos,
+          auditLog: appState.auditLog
+        }
       }
+
+      const dataStr = JSON.stringify(backup, null, 2)
+      const dataBlob = new Blob([dataStr], { type: 'application/json' })
+      const url = URL.createObjectURL(dataBlob)
+      const link = document.createElement('a')
+      link.href = url
+      link.download = `juristech-backup-${new Date().getTime()}.json`
+      link.click()
+      URL.revokeObjectURL(url)
+
+      showNotification('Backup realizado com sucesso!')
+    } catch (error) {
+      console.error('Erro ao gerar backup:', error)
+      showNotification('Erro ao gerar backup. Tente novamente.', 'error')
     }
-    
-    const dataStr = JSON.stringify(backup, null, 2)
-    const dataBlob = new Blob([dataStr], { type: 'application/json' })
-    const url = URL.createObjectURL(dataBlob)
-    const link = document.createElement('a')
-    link.href = url
-    link.download = `juristech-backup-${new Date().getTime()}.json`
-    link.click()
-    URL.revokeObjectURL(url)
-    
-    showNotification('Backup realizado com sucesso!')
   }
 
   // Restaurar backup
@@ -259,21 +299,21 @@ const initialState = {
     reader.onload = (e) => {
       try {
         const backup = JSON.parse(e.target.result)
-        
-        if (!backup.version || !backup.data) {
+
+        if (!validateBackupStructure(backup)) {
           throw new Error('Formato de backup inválido')
         }
-        
+
         if (confirm('Deseja restaurar este backup? Todos os dados atuais serão substituídos.')) {
           setAppState(prev => ({
             ...prev,
-            processos: backup.data.processos || [],
-            clientes: backup.data.clientes || [],
-            transacoes: backup.data.transacoes || [],
-            documentos: backup.data.documentos || [],
-            auditLog: backup.data.auditLog || []
+            processos: validateArray(backup.data.processos) || [],
+            clientes: validateArray(backup.data.clientes) || [],
+            transacoes: validateArray(backup.data.transacoes) || [],
+            documentos: validateArray(backup.data.documentos) || [],
+            auditLog: validateArray(backup.data.auditLog) || []
           }))
-          
+
           showNotification('Backup restaurado com sucesso!')
         }
       } catch (error) {
